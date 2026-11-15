@@ -1,0 +1,46 @@
+import {useState,useEffect,useRef} from 'react';
+function useLS(k,d){const [v,s]=useState(()=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}});useEffect(()=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},[k,v]);return [v,s]}
+
+export function SeaVideo({onOk}){const [ok,setOk]=useState(false),[pl,setPl]=useState(true),r=useRef();
+const skip=matchMedia('(prefers-reduced-motion: reduce)').matches||navigator.connection?.saveData;if(skip)return null;
+return <><video ref={r} className={'seavid '+(ok?'on':'')} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" onCanPlay={()=>{setOk(true);onOk(true)}}><source src="/videos/sea.webm" type="video/webm"/><source src="/videos/sea.mp4" type="video/mp4"/></video>
+{ok&&<button className="vctl" onClick={()=>{pl?r.current.pause():r.current.play();setPl(!pl)}} aria-label={pl?'Pause video':'Play video'}>{pl?'⏸':'▶'}</button>}</>}
+
+export function useStreak(){const [n,setN]=useState(1);useEffect(()=>{try{const s=JSON.parse(localStorage.getItem('streak'))||{},t=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString();let c=s.c||0;if(s.d!==t){c=s.d===y?c+1:1;localStorage.setItem('streak',JSON.stringify({d:t,c}))}setN(c||1)}catch{}},[]);return n}
+
+const COMBOS=[{n:'Morning combo',i:'🥐',items:['Ocean Latte','Butter Croissant'],p:290,was:320},{n:'Sweet pair',i:'🍫',items:['Caramel Macchiato','Chocolate Brownie'],p:310,was:340},{n:'Cool duo',i:'🍰',items:['Blue Ocean Frappe','Blueberry Cheesecake'],p:380,was:420}];
+export function printMenu(menu){const w=window.open('','_blank');if(!w)return;w.document.write('<title>Cozy Café menu</title><body style="font-family:sans-serif;max-width:640px;margin:30px auto"><h1>☕ Cozy Café menu</h1>'+menu.map(m=>`<p style="display:flex;justify-content:space-between;border-bottom:1px dotted #999"><span><b>${m.i} ${m.n}</b><br><small>${m.d}</small></span><b>₹${m.p}</b></p>`).join('')+'</body>');w.document.close();setTimeout(()=>w.print(),400)}
+export function Deals({add,pick,menu,streak,soldOut}){const h=new Date().getHours(),hh=h>=15&&h<17;
+const surprise=()=>{const l=menu.filter(m=>!soldOut.includes(m.n));pick(l[Math.floor(Math.random()*l.length)])};
+return <section id="deals" className="sec"><h2>Deals and combos.</h2>{hh?<p className="hhb">⏰ Happy hour is on until 5 PM: 10% off your whole order, applied automatically.</p>:<p className="sub">Happy hour runs 3–5 PM daily with 10% off your order.</p>}
+<div className="grid">{COMBOS.map(c=><div className="card" key={c.n}><div className="ico">{c.i}</div><h3>{c.n}</h3><p>{c.items.join(' + ')}</p><div className="row"><span><b>₹{c.p}</b> <s>₹{c.was}</s></span><button className="btn sm" onClick={()=>add({k:'combo-'+c.n,name:c.n,price:c.p,opts:c.items.join(' + ')})}>Add</button></div></div>)}
+<div className="card"><div className="ico">🎲</div><h3>Surprise me</h3><p>Can't decide? We'll pick something from today's menu.</p><div className="row"><span/><button className="btn sm" onClick={surprise}>Pick for me</button></div></div></div>
+<p className="streak">🔥 {streak}-day visit streak{streak>=5?' · show this screen at the counter for a free cookie':''} · <button className="lnk" onClick={()=>printMenu(menu)}>Print menu</button></p></section>}
+
+export function Story(){return <section id="story" className="sec"><h2>Our story.</h2><div className="grid">{[['🌊','Born by the sea','Cozy Café started as a small corner for slow mornings and calm ocean views.'],['☕','Brewed with care','Every cup is made to order by our baristas with beans we roast in small batches.'],['🧑‍🍳','Meet the team','Replace this card with your barista profile and a short photo caption.']].map(([i,t,d])=><div className="card" key={t}><div className="ico">{i}</div><h3>{t}</h3><p>{d}</p></div>)}</div></section>}
+
+export function BeanGame({onWin}){const ref=useRef(),stop=useRef(),[st,setSt]=useState({s:'idle'});useEffect(()=>()=>stop.current?.(),[]);
+const start=()=>{const c=ref.current,x=c.getContext('2d');let cup=160,beans=[],score=0,left=20,last=performance.now(),raf;
+c.onpointermove=e=>{const r=c.getBoundingClientRect();cup=(e.clientX-r.left)/r.width*c.width};
+const key=e=>{if(e.key==='ArrowLeft')cup-=30;if(e.key==='ArrowRight')cup+=30};addEventListener('keydown',key);stop.current=()=>{cancelAnimationFrame(raf);removeEventListener('keydown',key)};setSt({s:'run'});
+const loop=n=>{const d=Math.min(.05,(n-last)/1000);last=n;left-=d;if(Math.random()<d*2.5)beans.push({x:Math.random()*300+10,y:-10,v:120+Math.random()*90});
+x.clearRect(0,0,320,400);x.font='26px serif';beans.forEach(b=>{b.y+=b.v*d;x.fillText('🫘',b.x-12,b.y)});beans=beans.filter(b=>{if(b.y>360&&Math.abs(b.x-cup)<36){score++;return false}return b.y<420});
+x.fillText('☕',cup-16,388);x.font='16px sans-serif';x.fillStyle='#087fa8';x.fillText(`Score ${score}   Time ${Math.max(0,Math.ceil(left))}`,10,22);
+if(left>0)raf=requestAnimationFrame(loop);else{stop.current();const w=score>=15;setSt({s:'end',score,w});w&&onWin()}};raf=requestAnimationFrame(loop)};
+return <section id="play" className="sec center"><h2>Catch the beans.</h2><p className="sub">Move your mouse, finger or arrow keys. Catch 15 beans in 20 seconds to win a loyalty stamp (once a day).</p><canvas ref={ref} width="320" height="400" className="game" aria-label="Bean catching game"/><div>{st.s==='end'&&<p className="sub">{st.w?'🏆 You won!':'So close!'} You caught {st.score}.</p>}{st.s!=='run'&&<button className="btn" onClick={start}>{st.s==='idle'?'Start':'Play again'}</button>}</div></section>}
+
+export function Kitchen({log,setLog,close}){const NX={new:'preparing',preparing:'ready',ready:'done'},L={new:'Start',preparing:'Mark ready',ready:'Hand over'},list=[...log].filter(o=>(o.st||'new')!=='done').reverse();
+return <div className="modal" onClick={close}><div className="sheet adm" onClick={e=>e.stopPropagation()}><button className="x" onClick={close} aria-label="Close">×</button><h3>Kitchen screen</h3><p className="sub">Open the site in a second tab on this device to see orders arrive live.</p>
+{list.map(o=>{const s=o.st||'new';return <div key={o.id+o.at} className={'kt '+s}><b>{o.id} · {o.type}{o.tbl?' · table '+o.tbl:''}</b>{o.items.map((i,k)=><p key={k}>{i.q}× {i.name} <small>{i.opts}</small>{i.art&&<img className="artimg" src={i.art} alt="Latte art request"/>}</p>)}<button className="btn sm" onClick={()=>setLog(l=>l.map(x=>x===o?{...x,st:NX[s]}:x))}>{L[s]}</button></div>})}{!list.length&&<p className="empty">No active orders.</p>}</div></div>}
+
+export function QRSheet({close}){const open=()=>{const w=window.open('','_blank');if(!w)return;w.document.write('<title>Table QR codes</title><body style="font-family:sans-serif;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">'+Array.from({length:12},(_,i)=>`<div style="border:2px dashed #087fa8;padding:16px"><h2>☕ Table ${i+1}</h2><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(location.origin+'/?table='+(i+1))}"><p>Scan to order</p></div>`).join('')+'</body>');w.document.close();setTimeout(()=>w.print(),1500)};
+return <div className="modal" onClick={close}><div className="sheet" onClick={e=>e.stopPropagation()}><button className="x" onClick={close} aria-label="Close">×</button><h3>Table QR codes</h3><p>Prints one QR code per table (1–12). Each opens this site with the table number filled in. Publish the site first, because codes made on localhost won't work for customers.</p><button className="btn" onClick={open}>Open printable sheet</button></div></div>}
+
+export function A11y(){const [z,setZ]=useLS('zoom',1),[hc,setHc]=useLS('hc',false);useEffect(()=>{document.body.style.zoom=z;document.documentElement.dataset.contrast=hc?'high':''},[z,hc]);
+return <span><button className="lnk" onClick={()=>setZ(z>=1.3?1:+(z+.15).toFixed(2))}>Text size</button> · <button className="lnk" onClick={()=>setHc(!hc)}>{hc?'Normal':'High'} contrast</button></span>}
+
+export function ics(b){const p=n=>String(n).padStart(2,'0'),f=d=>`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}T${p(d.getHours())}${p(d.getMinutes())}00`,s=new Date(`${b.date}T${b.slot}:00`),e=new Date(s.getTime()+90*6e4);
+return 'data:text/calendar;charset=utf8,'+encodeURIComponent(['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT',`DTSTART:${f(s)}`,`DTEND:${f(e)}`,`SUMMARY:Cozy Café, table ${b.t.id}`,'LOCATION:24 Ocean View Street, Chennai',`DESCRIPTION:Booking ref ${b.ref} for ${b.guests} guests`,'END:VEVENT','END:VCALENDAR'].join('\r\n'))}
+const ACC=[['#087fa8','#0aa5d4'],['#e0703a','#f4a14a'],['#2e9f78','#4cc79a'],['#7b5cc4','#a083e8']];
+export function Accent(){const [i,setI]=useLS('accent',0);useEffect(()=>{const r=document.documentElement.style;r.setProperty('--ac',ACC[i][0]);r.setProperty('--ac2',ACC[i][1])},[i]);return <span className="acc">{ACC.map((c,k)=><button key={k} aria-label={'Accent colour '+(k+1)} className={k===i?'on':''} style={{background:c[0]}} onClick={()=>setI(k)}/>)}</span>}
+export function Install(){const [e,setE]=useState(null);useEffect(()=>{const f=ev=>{ev.preventDefault();setE(ev)};addEventListener('beforeinstallprompt',f);return()=>removeEventListener('beforeinstallprompt',f)},[]);return e?<> · <button className="lnk" onClick={()=>{e.prompt();setE(null)}}>Install app</button></>:null}
